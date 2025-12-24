@@ -1,3 +1,8 @@
-from django.shortcuts import render
+from rest_framework.viewsets import ModelViewSet
+from .models import LandInventory
+from .serializers import LandInventorySerializer
 
-# Create your views here.
+class LandInventoryViewSet(ModelViewSet):
+    queryset = LandInventory.objects.all()
+    serializer_class = LandInventorySerializer
+    
