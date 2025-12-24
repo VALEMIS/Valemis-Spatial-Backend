@@ -79,7 +79,7 @@ WSGI_APPLICATION = 'ValemisSpatial.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.contrib.gis.db.backends.postgis',
-        'NAME': 'valemispg',
+        'NAME': 'valemis',
         'USER': 'valemis',
         'PASSWORD': 'Valemis@2025',
         'HOST': '103.150.191.85',
