@@ -2,10 +2,18 @@ from django.contrib.gis.db import models
 
 
 # Create your models here.
-
-
+class LandAcquisitionProject(models.Model):
+    id_project = models.AutoField(primary_key=True)
+    nama_project = models.TextField(null=False)
+    owner_project = models.TextField()
+    tanggal_dibuat = models.DateField()
+    class meta:
+        db_table = 'tbl_land_acquisition_project'
+        verbose_name = 'Land Acquisition Project'
+        verbose_name_plural = 'Land Acquisition Projects'
 class Acquisition(models.Model):
     id_parcel = models.AutoField(primary_key=True)
+    id_project = models.ForeignKey(LandAcquisitionProject,on_delete=models.CASCADE,related_name="AcquisitonProject",null=True,blank=True)
     kode_parcel = models.TextField()
     nama_pemilik = models.TextField()
     desa = models.TextField()
@@ -99,6 +107,20 @@ class LandInventoryDocument(models.Model):
         verbose_name = 'Land Inventory Document'
         verbose_name_plural = 'Land Inventory Documents'
 
+
+
+
+# UPlOAD DATA LAND INVENTORY
+
+class LandInventoryThemeMap(models.Model):
+    id_theme_map = models.AutoField(primary_key=True)
+    # uuid = models.
+    nama_map = models.TextField()
+    tbl_name = models.TextField()
+    class Meta:
+        db_table = 'tbl_land_inventory_theme_map'
+        verbose_name = 'Land Inventory Theme Map'
+        verbose_name_plural = 'Land Inventory Theme Maps'
 
 # INSERT REF DATA
 # LandKategori.objects.bulk_create([
