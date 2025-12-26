@@ -1,5 +1,11 @@
 from rest_framework import serializers
+from rest_framework_gis.serializers import GeoFeatureModelSerializer
 from .models import *
+
+class PolygonPersilSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PolygonPersil
+        fields = ['id_persil', 'geom']
 
 class HistoryAcquisitionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -10,7 +16,7 @@ class HistoryAcquisitionSerializer(serializers.ModelSerializer):
             'deskripsi'
         ]
 class AcquisitionSerializer(serializers.ModelSerializer):
-    histories = HistoryAcquisitionSerializer(many=True, read_only=True)
+    id_persil = PolygonPersilSerializer()
 
     class Meta:
         model = Acquisition
@@ -25,14 +31,25 @@ class AcquisitionSerializer(serializers.ModelSerializer):
             'jumlah_bebas',
             'biaya_pembebasan',
             'tanggal_negosiasi',
-            'geom',
-            'histories'
+            'id_persil'
         ]
+
+    def create(self, validated_data):
+        persil_data = validated_data.pop('id_persil')
+        persil = PolygonPersil.objects.create(**persil_data)
+
+        return Acquisition.objects.create(
+            id_persil=persil,
+            **validated_data
+        )
+
+
 class LandAcquisitionProjectSerializer(serializers.ModelSerializer):
+    id_persil = PolygonPersilSerializer()
     acquisitions = AcquisitionSerializer(
         many=True,
-        read_only=True,
-        source='AcquisitonProject'
+        source='AcquisitonProject',
+        required=False
     )
 
     class Meta:
@@ -40,11 +57,35 @@ class LandAcquisitionProjectSerializer(serializers.ModelSerializer):
         fields = [
             'id_project',
             'nama_project',
+            'owner_project',
             'tanggal_dibuat',
+            'id_persil',
             'acquisitions'
         ]
+        read_only_fields = ['tanggal_dibuat']
 
+    def create(self, validated_data):
+        acquisitions_data = validated_data.pop('AcquisitonProject', [])
+        persil_data = validated_data.pop('id_persil')
 
+        persil = PolygonPersil.objects.create(**persil_data)
+
+        project = LandAcquisitionProject.objects.create(
+            id_persil=persil,
+            **validated_data
+        )
+
+        for acq in acquisitions_data:
+            acq_persil_data = acq.pop('id_persil')
+            acq_persil = PolygonPersil.objects.create(**acq_persil_data)
+
+            Acquisition.objects.create(
+                id_project=project,
+                id_persil=acq_persil,
+                **acq
+            )
+
+        return project
 
 
 class LandKategoriSerializer(serializers.ModelSerializer):
@@ -60,8 +101,16 @@ class LandStatusSerializer(serializers.ModelSerializer):
 
 
 class LandInventorySerializer(serializers.ModelSerializer):
-    kategori_detail = LandKategoriSerializer(source='kategori', read_only=True)
-    status_detail = LandStatusSerializer(source='status', read_only=True)
+    id_persil = PolygonPersilSerializer()
+
+    kategori_detail = LandKategoriSerializer(
+        source='kategori',
+        read_only=True
+    )
+    status_detail = LandStatusSerializer(
+        source='status',
+        read_only=True
+    )
 
     class Meta:
         model = LandInventory
@@ -74,5 +123,14 @@ class LandInventorySerializer(serializers.ModelSerializer):
             'status',
             'status_detail',
             'no_sertif',
-            'geom',
+            'id_persil',
         ]
+
+    def create(self, validated_data):
+        persil_data = validated_data.pop('id_persil')
+        persil = PolygonPersil.objects.create(**persil_data)
+
+        return LandInventory.objects.create(
+            id_persil=persil,
+            **validated_data
+        )

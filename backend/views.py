@@ -11,8 +11,8 @@ from shapely import wkt
 from django.db import transaction, connection
 from django.utils.text import slugify
 from rest_framework.viewsets import ModelViewSet
-from .models import LandInventory,Acquisition,LandInventoryThemeMap
-from .serializers import LandInventorySerializer,AcquisitionSerializer
+from .models import LandInventory,Acquisition,LandInventoryThemeMap,LandAcquisitionProject
+from .serializers import LandInventorySerializer,AcquisitionSerializer,LandAcquisitionProjectSerializer
 
 class LandInventoryViewSet(ModelViewSet):
     queryset = LandInventory.objects.all()
@@ -20,6 +20,14 @@ class LandInventoryViewSet(ModelViewSet):
 class LandAcquisitionViewSet(ModelViewSet):
     queryset = Acquisition.objects.all()
     serializer_class = AcquisitionSerializer
+
+class LandAcquisitionProjectViewSet(ModelViewSet):
+    queryset = LandAcquisitionProject.objects.all()
+    serializer_class = LandAcquisitionProjectSerializer
+
+
+
+#  COMPLIANCE
 
 def ProcessThemeMap(request):
     uploaded_file = request.FILE.get("uploaded File")

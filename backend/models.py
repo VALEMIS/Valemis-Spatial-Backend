@@ -2,27 +2,57 @@ from django.contrib.gis.db import models
 
 
 # Create your models here.
+class PolygonPersil(models.Model):
+    id_persil = models.AutoField(primary_key=True)
+    geom = models.MultiPolygonField(srid=4326)
+    class Meta:
+        db_table = 'tbl_persil'
+        verbose_name = 'Polygon Persil'
+        verbose_name_plural = 'Polygon Persils'
+
+    def __str__(self):
+        return f"PolygonPersil {self.id}"
+
+
 class LandAcquisitionProject(models.Model):
     id_project = models.AutoField(primary_key=True)
-    nama_project = models.TextField(null=False)
+    nama_project = models.TextField()
     owner_project = models.TextField()
-    tanggal_dibuat = models.DateField()
-    class meta:
+    tanggal_dibuat = models.DateField(auto_now_add=True)
+    id_persil = models.ForeignKey(
+        PolygonPersil,
+        on_delete=models.PROTECT,
+        related_name='projects',
+        null=True,
+        blank=True
+    )
+
+    class Meta:
         db_table = 'tbl_land_acquisition_project'
         verbose_name = 'Land Acquisition Project'
         verbose_name_plural = 'Land Acquisition Projects'
+
+    def __str__(self):
+        return self.nama_project
 class Acquisition(models.Model):
     id_parcel = models.AutoField(primary_key=True)
     id_project = models.ForeignKey(LandAcquisitionProject,on_delete=models.CASCADE,related_name="AcquisitonProject",null=True,blank=True)
     kode_parcel = models.TextField()
     nama_pemilik = models.TextField()
     desa = models.TextField()
-    luas = models.FloatField()
+    luas = models.FloatField(null=True,default=0)
     status = models.TextField()
-    jumlah_bebas = models.FloatField()
-    biaya_pembebasan = models.IntegerField()
-    tanggal_negosiasi = models.DateField()
-    geom = models.PolygonField(srid=4326)
+    jumlah_bebas = models.IntegerField(null=True,default=0)
+    biaya_pembebasan = models.IntegerField(null=True,default=0)
+    tanggal_negosiasi = models.DateField(null=True,blank=True)
+
+    id_persil = models.ForeignKey(
+        PolygonPersil,
+        on_delete=models.PROTECT,
+        related_name='acquisition',
+        null=True,
+        blank=True
+    )
 
     class Meta:
         db_table = 'tbl_acquisition'
@@ -36,7 +66,9 @@ class HistoryAcquisition(models.Model):
     id_parcel = models.ForeignKey(
         Acquisition,
         on_delete=models.CASCADE,
-        related_name="histories"
+        related_name="histories",
+        null=True,
+        blank=True
     )
     status = models.TextField()
     deskripsi = models.TextField()
@@ -87,7 +119,13 @@ class LandInventory(models.Model):
         related_name='status'
     )
     no_sertif = models.TextField()
-    geom = models.PointField()
+    id_persil = models.ForeignKey(
+        PolygonPersil,
+        on_delete=models.PROTECT,
+        related_name='persilGeom',
+        null=True,
+        blank=True
+    )
     class Meta:
         db_table = 'tbl_land_inventory'
         verbose_name = 'LandInventory'
