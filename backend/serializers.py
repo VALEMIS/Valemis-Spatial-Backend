@@ -1,12 +1,28 @@
+import os
+import uuid
+import zipfile
+import subprocess
+import requests
+import psycopg2
+
+from django.conf import settings
+from rest_framework import serializers
 from rest_framework import serializers
 from rest_framework_gis.serializers import GeoFeatureModelSerializer
 from .models import *
+
+from django.db import transaction
 
 class PolygonPersilSerializer(serializers.ModelSerializer):
     class Meta:
         model = PolygonPersil
         fields = ['id_persil', 'geom']
 
+
+
+# ============================================
+# *************LAND ACQUISITION***************
+# ============================================
 class HistoryAcquisitionSerializer(serializers.ModelSerializer):
     class Meta:
         model = HistoryAcquisition
@@ -16,7 +32,7 @@ class HistoryAcquisitionSerializer(serializers.ModelSerializer):
             'deskripsi'
         ]
 class AcquisitionSerializer(serializers.ModelSerializer):
-    id_persil = PolygonPersilSerializer()
+    # id_persil = PolygonPersilSerializer()
 
     class Meta:
         model = Acquisition
@@ -31,63 +47,42 @@ class AcquisitionSerializer(serializers.ModelSerializer):
             'jumlah_bebas',
             'biaya_pembebasan',
             'tanggal_negosiasi',
-            'id_persil'
+            'geom'
+            # 'id_persil'
         ]
 
-    def create(self, validated_data):
-        persil_data = validated_data.pop('id_persil')
-        persil = PolygonPersil.objects.create(**persil_data)
+    # def create(self, validated_data):
+    #     persil_data = validated_data.pop('id_persil')
+    #     persil = PolygonPersil.objects.create(**persil_data)
 
-        return Acquisition.objects.create(
-            id_persil=persil,
-            **validated_data
-        )
+    #     return Acquisition.objects.create(
+    #         id_persil=persil,
+    #         **validated_data
+    #     )
 
 
-class LandAcquisitionProjectSerializer(serializers.ModelSerializer):
-    id_persil = PolygonPersilSerializer()
-    acquisitions = AcquisitionSerializer(
-        many=True,
-        source='AcquisitonProject',
-        required=False
-    )
+class ProjectSerializer(serializers.ModelSerializer):
+    # id_persil = PolygonPersilSerializer()
+    # acquisitions = AcquisitionSerializer(
+    #     many=True,
+    #     source='AcquisitonProject',
+    #     required=False
+    # )
 
     class Meta:
-        model = LandAcquisitionProject
+        model = Project
         fields = [
             'id_project',
             'nama_project',
             'owner_project',
             'tanggal_dibuat',
-            'id_persil',
-            'acquisitions'
+            'geom',
         ]
         read_only_fields = ['tanggal_dibuat']
 
-    def create(self, validated_data):
-        acquisitions_data = validated_data.pop('AcquisitonProject', [])
-        persil_data = validated_data.pop('id_persil')
-
-        persil = PolygonPersil.objects.create(**persil_data)
-
-        project = LandAcquisitionProject.objects.create(
-            id_persil=persil,
-            **validated_data
-        )
-
-        for acq in acquisitions_data:
-            acq_persil_data = acq.pop('id_persil')
-            acq_persil = PolygonPersil.objects.create(**acq_persil_data)
-
-            Acquisition.objects.create(
-                id_project=project,
-                id_persil=acq_persil,
-                **acq
-            )
-
-        return project
-
-
+# ============================================
+# ***************LAND INVENTORY***************
+# ============================================
 class LandKategoriSerializer(serializers.ModelSerializer):
     class Meta:
         model = LandKategori
@@ -99,6 +94,15 @@ class LandStatusSerializer(serializers.ModelSerializer):
         model = LandStatus
         fields = ('id', 'code', 'label')
 
+class LandInventoryDocumentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LandInventoryDocument
+        fields = [
+            'id_document',
+            'id_lahan',
+            'nama_dokumen',
+            'file',
+        ]
 
 class LandInventorySerializer(serializers.ModelSerializer):
     id_persil = PolygonPersilSerializer()
@@ -109,6 +113,10 @@ class LandInventorySerializer(serializers.ModelSerializer):
     )
     status_detail = LandStatusSerializer(
         source='status',
+        read_only=True
+    )
+    documents = LandInventoryDocumentSerializer(
+        many=True,
         read_only=True
     )
 
@@ -122,7 +130,9 @@ class LandInventorySerializer(serializers.ModelSerializer):
             'kategori_detail',
             'status',
             'status_detail',
+            'documents',
             'no_sertif',
+            'id_project',
             'id_persil',
         ]
 
@@ -134,3 +144,182 @@ class LandInventorySerializer(serializers.ModelSerializer):
             id_persil=persil,
             **validated_data
         )
+
+class LandInventoryRasterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LandInventoryRaster
+        fields = [
+            "id_raster",
+            "id_project",
+            "store_name",
+            "nama",
+            'raster_path'
+        ]
+        read_only_fields = ["id_raster"]
+
+    def create(self, validated_data):
+        auth = ("admin", "geoserver")
+
+        with transaction.atomic():
+            # 1️⃣ SIMPAN KE DATABASE + FILESYSTEM
+            raster_obj = LandInventoryRaster.objects.create(**validated_data)
+
+            file_path = raster_obj.raster_path.path
+            store_name = raster_obj.store_name
+            nama = raster_obj.nama
+            print("Proses 1")
+            # 2️⃣ UPLOAD KE GEOSERVER
+            upload_url = (
+                f"http://localhost:8080/geoserver/rest/workspaces/"
+                f"raster_valemis/coveragestores/"
+                f"{store_name}_store/file.geotiff"
+            )
+            print("Proses 2")
+            with open(file_path, "rb") as f:
+                resp = requests.put(
+                    upload_url,
+                    auth=auth,
+                    headers={"Content-Type": "image/tiff"},
+                    data=f,
+                    timeout=120
+                )
+            print("Proses 1")
+            if resp.status_code not in (200, 201):
+                raise serializers.ValidationError(
+                    {"geoserver store": resp.text}
+                )
+
+            # 3️⃣ PUBLISH COVERAGE
+            publish_url = (
+                f"http://localhost:8080/geoserver/rest/workspaces/"
+                f"raster_valemis/coveragestores/"
+                f"{store_name}_store/coverages"
+            )
+
+            xml = f"""
+            <coverage>
+                <name>{store_name}</name>
+                <title>{nama}</title>
+                <enabled>true</enabled>
+            </coverage>
+            """
+
+            resp = requests.post(
+                publish_url,
+                auth=auth,
+                headers={"Content-Type": "application/xml"},
+                data=xml
+            )
+
+            if resp.status_code not in (200, 201):
+                raise serializers.ValidationError(
+                    {"geoserver publish": resp.text}
+                )
+
+        return raster_obj
+    
+class LandInventoryThemeMapSerializer(serializers.ModelSerializer):
+    tbl_name = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = LandInventoryThemeMap
+        fields = "__all__"
+    def generate_table_name():
+        return f"theme_{uuid.uuid4().hex[:8]}"
+
+    def create(self, validated_data):
+        # GeoServer
+        GEOSERVER_URL = "http://localhost:8080/geoserver/rest"
+        GEOSERVER_USER = "admin"
+        GEOSERVER_PASS = "geoserver"
+        WORKSPACE = "vector_valemis"
+        POSTGIS_STORE = "postgis_valemis"
+
+        # PostGIS
+        DB_NAME = "valemis"
+        DB_USER = "valemis"
+        DB_PASS = "Valemis@2025"
+        DB_HOST = "103.150.191.85"
+        DB_PORT = "5432"
+
+        shp_path = validated_data["shp_path"]
+        nama_map = validated_data["nama_map"]
+
+        # 1️⃣ AUTO UNIQUE TABLE NAME
+        tbl_name = f"theme_{uuid.uuid4().hex[:8]}"
+        validated_data["tbl_name"] = tbl_name
+
+        # 2️⃣ SAVE DJANGO MODEL (DAPAT FILE PATH)
+        instance = super().create(validated_data)
+
+        # 3️⃣ EXTRACT ZIP
+        extract_dir = os.path.join(
+            settings.MEDIA_ROOT,
+            "tmp",
+            tbl_name
+        )
+        os.makedirs(extract_dir, exist_ok=True)
+
+        with zipfile.ZipFile(instance.shp_path.path, "r") as z:
+            z.extractall(extract_dir)
+
+        shp_files = [f for f in os.listdir(extract_dir) if f.endswith(".shp")]
+        if not shp_files:
+            instance.delete()
+            raise serializers.ValidationError("ZIP tidak berisi file .shp")
+
+        shp_path = os.path.join(extract_dir, shp_files[0])
+
+        # 4️⃣ IMPORT KE POSTGIS (ogr2ogr)
+        ogr_cmd = [
+            "ogr2ogr",
+            "-f", "PostgreSQL",
+            f"PG:host={DB_HOST} port={DB_PORT} user={DB_USER} "
+            f"dbname={DB_NAME} password={DB_PASS}",
+            shp_path,
+            "-nln", tbl_name,
+            "-lco", "GEOMETRY_NAME=geom",
+            "-lco", "FID=id",
+            "-overwrite"
+        ]
+
+        ogr = subprocess.run(
+            ogr_cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+
+        if ogr.returncode != 0:
+            instance.delete()
+            raise serializers.ValidationError({
+                "postgis_import": ogr.stderr.decode()
+            })
+
+        # 5️⃣ PUBLISH KE GEOSERVER (POSTGIS DATASTORE)
+        publish_url = (
+            f"{GEOSERVER_URL}/workspaces/{WORKSPACE}"
+            f"/datastores/{POSTGIS_STORE}/featuretypes"
+        )
+
+        xml = f"""
+        <featureType>
+            <name>{tbl_name}</name>
+            <title>{nama_map}</title>
+            <enabled>true</enabled>
+        </featureType>
+        """
+
+        resp = requests.post(
+            publish_url,
+            auth=(GEOSERVER_USER, GEOSERVER_PASS),
+            headers={"Content-Type": "application/xml"},
+            data=xml
+        )
+
+        if resp.status_code not in (200, 201):
+            instance.delete()
+            raise serializers.ValidationError({
+                "geoserver_publish": resp.text
+            })
+
+        return instance

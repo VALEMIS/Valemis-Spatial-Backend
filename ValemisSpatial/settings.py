@@ -28,6 +28,8 @@ DEBUG = True
 ALLOWED_HOSTS = []
 
 CORS_ALLOW_ALL_ORIGINS = True
+MEDIA_URL = '/upload/'
+MEDIA_ROOT = BASE_DIR / 'upload'
 # Application definition
 
 INSTALLED_APPS = [

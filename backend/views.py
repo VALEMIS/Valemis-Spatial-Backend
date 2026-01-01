@@ -3,6 +3,8 @@ import json
 import tempfile
 import zipfile
 
+
+from .serializers import LandInventoryRasterSerializer
 import geopandas as gpd
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -11,23 +13,70 @@ from shapely import wkt
 from django.db import transaction, connection
 from django.utils.text import slugify
 from rest_framework.viewsets import ModelViewSet
-from .models import LandInventory,Acquisition,LandInventoryThemeMap,LandAcquisitionProject
-from .serializers import LandInventorySerializer,AcquisitionSerializer,LandAcquisitionProjectSerializer
+from rest_framework.parsers import MultiPartParser, FormParser
+from .models import LandInventory,Acquisition,LandInventoryThemeMap,Project,LandInventoryDocument,LandInventoryRaster
+from .serializers import LandInventorySerializer,AcquisitionSerializer,ProjectSerializer,LandInventoryDocumentSerializer,LandInventoryRasterSerializer,LandInventoryThemeMapSerializer
 
 class LandInventoryViewSet(ModelViewSet):
     queryset = LandInventory.objects.all()
     serializer_class = LandInventorySerializer
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        id_project = self.request.query_params.get("id_project")
+
+        if id_project is not None:
+            queryset = queryset.filter(id_project=id_project)
+
+        return queryset
 class LandAcquisitionViewSet(ModelViewSet):
     queryset = Acquisition.objects.all()
     serializer_class = AcquisitionSerializer
+    def get_queryset(self):
+        queryset = super().get_queryset()
 
-class LandAcquisitionProjectViewSet(ModelViewSet):
-    queryset = LandAcquisitionProject.objects.all()
-    serializer_class = LandAcquisitionProjectSerializer
+        id_project = self.request.query_params.get("id_project")
 
+        if id_project is not None:
+            queryset = queryset.filter(id_project=id_project)
 
+        return queryset
 
-#  COMPLIANCE
+class ProjectViewSet(ModelViewSet):
+    queryset = Project.objects.all()
+    serializer_class = ProjectSerializer
+class LandInventoryDocumentViewSet(ModelViewSet):
+    queryset = LandInventoryDocument.objects.all()
+    serializer_class = LandInventoryDocumentSerializer
+    parser_classes = [MultiPartParser, FormParser]
+
+class LandInventoryRasterViewSet(ModelViewSet):
+    queryset = LandInventoryRaster.objects.all().order_by("-id_raster")
+    serializer_class = LandInventoryRasterSerializer
+    parser_classes = [MultiPartParser, FormParser]
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        id_project = self.request.query_params.get("id_project")
+
+        if id_project is not None:
+            queryset = queryset.filter(id_project=id_project)
+
+        return queryset
+class LandInventoryThemeMapViewSet(ModelViewSet):
+    queryset = LandInventoryThemeMap.objects.all()
+    serializer_class = LandInventoryThemeMapSerializer
+    parser_classes = [MultiPartParser, FormParser]
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        id_project = self.request.query_params.get("id_project")
+
+        if id_project is not None:
+            queryset = queryset.filter(id_project=id_project)
+
+        return queryset
+
 
 def ProcessThemeMap(request):
     uploaded_file = request.FILE.get("uploaded File")
