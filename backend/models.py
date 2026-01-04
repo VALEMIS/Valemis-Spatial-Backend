@@ -1,17 +1,20 @@
 from django.contrib.gis.db import models
 
+class geometry(models.Field):
+    def db_type(self, connection):
+        return "geometry"
 
 # Create your models here.
-class PolygonPersil(models.Model):
-    id_persil = models.AutoField(primary_key=True)
-    geom = models.MultiPolygonField(srid=4326,null=True,blank=True)
-    class Meta:
-        db_table = 'tbl_persil'
-        verbose_name = 'Polygon Persil'
-        verbose_name_plural = 'Polygon Persils'
+# class PolygonPersil(models.Model):
+#     id_persil = models.AutoField(primary_key=True)
+#     geom = models.GeometryField(srid=4326,null=True,blank=True)
+#     class Meta:
+#         db_table = 'tbl_persil'
+#         verbose_name = 'Polygon Persil'
+#         verbose_name_plural = 'Polygon Persils'
 
-    def __str__(self):
-        return f"PolygonPersil {self.id}"
+#     def __str__(self):
+#         return f"PolygonPersil {self.id}"
 
 
 class Project(models.Model):
@@ -26,7 +29,7 @@ class Project(models.Model):
     #     null=True,
     #     blank=True
     # )
-    geom = models.MultiPolygonField(srid=4326)
+    geom = models.GeometryField(srid=4326)
     class Meta:
         db_table = 'tbl_project'
         verbose_name = 'Project'
@@ -34,6 +37,13 @@ class Project(models.Model):
 
     def __str__(self):
         return self.nama_project
+class AcquisitionAsset(models.Model):
+    id_parcel_asset = models.AutoField(primary_key=True)
+    id_asset = models.IntegerField()
+    class Meta:
+        db_table = 'tbl_acquisition_asset'
+        verbose_name = 'Acquisition_asset'
+        verbose_name_plural = 'Acquisition_assets'
 class Acquisition(models.Model):
     id_parcel = models.AutoField(primary_key=True)
     id_project = models.ForeignKey(Project,on_delete=models.CASCADE,related_name="ProjectAcquisition",null=True,blank=True)
@@ -45,7 +55,9 @@ class Acquisition(models.Model):
     jumlah_bebas = models.IntegerField(null=True,default=0)
     biaya_pembebasan = models.IntegerField(null=True,default=0)
     tanggal_negosiasi = models.DateField(null=True,blank=True)
-    geom = models.MultiPolygonField(srid=4326,null=True,blank=True)
+    NIB_Baru = models.CharField(max_length=15)
+    id_asset = models.ForeignKey(AcquisitionAsset,on_delete=models.CASCADE,related_name="Acquisition_asset")
+    geom = models.GeometryField(srid=4326,null=True,blank=True)
     # id_persil = models.ForeignKey(
     #     PolygonPersil,
     #     on_delete=models.PROTECT,
@@ -61,6 +73,7 @@ class Acquisition(models.Model):
 
     def __str__(self):
         return self.kode_parcel
+
 class HistoryAcquisition(models.Model):
     id_history = models.AutoField(primary_key=True)
     id_parcel = models.ForeignKey(
@@ -127,6 +140,7 @@ class LandInventory(models.Model):
         null=True,
         blank=True
     )
+    
     class Meta:
         db_table = 'tbl_land_inventory'
         verbose_name = 'LandInventory'
@@ -153,11 +167,13 @@ class LandInventoryDocument(models.Model):
 # UPlOAD DATA LAND INVENTORY
 
 class LandInventoryThemeMap(models.Model):
+    # class TipePeta(modes.Intege)
     id_theme_map = models.AutoField(primary_key=True)
     id_project = models.ForeignKey(Project,on_delete=models.CASCADE,related_name="ProjectThemeMap",null=True,blank=True)
     nama_map = models.TextField()
     tbl_name = models.TextField(unique=True, editable=False)
     shp_path = models.FileField(upload_to="themeMap")
+    type = models.TextField()
     class Meta:
         db_table = 'tbl_land_inventory_theme_map'
         verbose_name = 'Land Inventory Theme Map'
@@ -171,7 +187,7 @@ class LandInventoryRaster(models.Model):
     class Meta:
         db_table = 'tbl_land_inventory_raster'
         verbose_name = 'Land Inventory Raster'
-        verbose_name_plural = 'Land Inventory Rasters'
+        verbose_name_plural = 'Land Inventory Ras`ters'
 
 # INSERT REF DATA
 # LandKategori.objects.bulk_create([
