@@ -83,12 +83,10 @@ def ProcessThemeMap(request):
 
 
 def load_layer_from_db(table):
-    geom_col = "ogr_geometry"
-    # print(table )
     with connection.cursor() as cursor:
         # print(cursor)
         cursor.execute(f"""
-            SELECT ogr_geometry.STAsText() AS wkt_geom FROM \"{table}\"
+            SELECT geom.geometry.STAsText() AS wkt_geom FROM \"{table}\"
         """)
 
         columns = [col[0] for col in cursor.description]
@@ -137,67 +135,78 @@ def api_analyze(request):
         return JsonResponse({"error": "Only POST supported"}, status=405)
 
     try:
-        uploaded_file = request.FILES.get("file")
-        layer_list = request.FILE.get("layer_list")
-        if not uploaded_file:
-            return JsonResponse({"error": "No file uploaded"}, status=400)
+        body = json.loads(request.body.decode("utf-8"))
 
-        # Save & read input file
-        with tempfile.TemporaryDirectory() as tmpdir:
-            spatial_path = read_uploaded_file(uploaded_file, tmpdir)
+        wkt_geom = body.get("geometry")
+        table_list = body.get("tables", [])
 
-            if not spatial_path:
-                return JsonResponse({"error": "Unsupported spatial file"}, status=400)
+        if not wkt_geom:
+            return JsonResponse({"error": "geometry (WKT) required"}, status=400)
 
-            gdf_input = gpd.read_file(spatial_path)
-
-        # CRS standardization
-        gdf_input = gdf_input.to_crs("EPSG:3857")
+        if not isinstance(table_list, list) or not table_list:
+            return JsonResponse({"error": "tables must be non-empty array"}, status=400)
 
         # ==============================
-        # Load layers from DB
+        # INPUT GEOMETRY (WKT → GDF)
         # ==============================
-        layers = {
-            "APL": load_layer_from_db("apl"),
-            "HGB": load_layer_from_db("hgb"),
-            "IPPKH": load_layer_from_db("ippkh"),
-            "IUPK": load_layer_from_db("iupk"),
-            "KKPR": load_layer_from_db("kkpr"),
-            "Kawasan Hutan": load_layer_from_db("kawasan hutan"),
-            "Lahan Bebas": load_layer_from_db("lahan_bebas"),
-        }
+        geom = wkt.loads(wkt_geom)
+
+        gdf_input = gpd.GeoDataFrame(
+            [{"id": 1}],
+            geometry=[geom],
+            crs="EPSG:4326"
+        )
 
         results = []
         geojson_layers = {}
 
         # ==============================
-        # Spatial intersect
+        # PROCESS EACH TABLE
         # ==============================
-        for name, gdf in layers.items():
-            gdf = gdf.to_crs("EPSG:32751")
+        for table in table_list:
+            gdf_layer = load_layer_from_db(table)
 
-            clipped = gpd.overlay(gdf, gdf_input, how="intersection")
+            if gdf_layer.empty:
+                geojson_layers[table] = None
+                results.append({
+                    "layer": table,
+                    "jumlah_fitur": 0,
+                    "luas_m2": 0,
+                    "luas_ha": 0
+                })
+                continue
+
+            # pastikan layer CRS 4326
+            gdf_layer = gdf_layer.to_crs("EPSG:4326")
+
+            # overlay di 4326
+            clipped = gpd.overlay(gdf_layer, gdf_input, how="intersection")
 
             if clipped.empty:
+                geojson_layers[table] = None
                 area_m2 = 0
-                geojson_layers[name] = None
             else:
-                clipped["area_m2"] = clipped.geometry.area
-                area_m2 = clipped["area_m2"].sum()
+                # ==============================
+                # AREA CALCULATION → 3857
+                # ==============================
+                clipped_3857 = clipped.to_crs("EPSG:3857")
+                area_m2 = clipped_3857.geometry.area.sum()
 
-                geojson_layers[name] = json.loads(
-                    clipped.to_crs("EPSG:4326").to_json()
+                geojson_layers[table] = json.loads(
+                    clipped.to_json()
                 )
 
             results.append({
-                "layer": name,
+                "layer": table,
                 "jumlah_fitur": len(clipped),
                 "luas_m2": round(area_m2, 2),
                 "luas_ha": round(area_m2 / 10000, 4)
             })
 
-        # Input outline (user uploaded geometry)
-        input_geojson = json.loads(gdf_input.to_crs("EPSG:4326").to_json())
+        # ==============================
+        # INPUT GEOJSON
+        # ==============================
+        input_geojson = json.loads(gdf_input.to_json())
 
         return JsonResponse({
             "input": input_geojson,
@@ -207,7 +216,6 @@ def api_analyze(request):
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-
 
 @csrf_exempt
 def ProcessThemeMap(request):

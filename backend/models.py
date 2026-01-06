@@ -39,7 +39,7 @@ class Project(models.Model):
         return self.nama_project
 class AcquisitionAsset(models.Model):
     id_parcel_asset = models.AutoField(primary_key=True)
-    id_asset = models.CharField(max_length=20,null=True,blank=True)
+    id_asset = models.TextField(null=True,blank=True)
     class Meta:
         db_table = 'tbl_acquisition_asset'
         verbose_name = 'Acquisition_asset'
@@ -47,13 +47,13 @@ class AcquisitionAsset(models.Model):
 class Acquisition(models.Model):
     id_parcel = models.AutoField(primary_key=True)
     id_project = models.ForeignKey(Project,on_delete=models.CASCADE,related_name="ProjectAcquisition",null=True,blank=True)
-    kode_parcel = models.TextField()
-    nama_pemilik = models.TextField()
-    desa = models.TextField()
-    luas = models.FloatField(null=True,default=0)
-    status = models.TextField()
-    jumlah_bebas = models.IntegerField(null=True,default=0)
-    biaya_pembebasan = models.IntegerField(null=True,default=0)
+    kode_parcel = models.TextField(null=True,blank=True)
+    nama_pemilik = models.TextField(null=True,blank=True)
+    desa = models.TextField(null=True,blank=True)
+    luas = models.FloatField(null=True,blank=True,default=0)
+    status = models.TextField(null=True,blank=True)
+    jumlah_bebas = models.IntegerField(null=True,blank=True,default=0)
+    biaya_pembebasan = models.IntegerField(null=True,blank=True,default=0)
     tanggal_negosiasi = models.DateField(null=True,blank=True)
     NIB_Baru = models.CharField(max_length=15,null=True,blank=True)
     id_asset = models.ForeignKey(AcquisitionAsset,on_delete=models.CASCADE,related_name="Acquisition_asset",null=True,blank=True)
@@ -168,6 +168,7 @@ class LandInventoryThemeMap(models.Model):
     tbl_name = models.TextField(unique=True, editable=False)
     shp_path = models.FileField(upload_to="themeMap")
     type = models.TextField()
+    style = models.TextField(null=True,blank=True)
     class Meta:
         db_table = 'tbl_land_inventory_theme_map'
         verbose_name = 'Land Inventory Theme Map'

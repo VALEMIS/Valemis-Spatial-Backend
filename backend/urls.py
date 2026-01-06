@@ -1,5 +1,6 @@
 from rest_framework.routers import DefaultRouter
-from .views import LandInventoryViewSet,LandAcquisitionViewSet,ProjectViewSet,LandInventoryDocumentViewSet,LandInventoryRasterViewSet,LandInventoryThemeMapViewSet
+from django.urls import path
+from .views import LandInventoryViewSet,LandAcquisitionViewSet,ProjectViewSet,LandInventoryDocumentViewSet,LandInventoryRasterViewSet,LandInventoryThemeMapViewSet,api_analyze
 
 router = DefaultRouter()
 router.register(r'LandInventory', LandInventoryViewSet, basename='LandInventory')
@@ -11,3 +12,6 @@ router.register(r'Project', ProjectViewSet, basename='Project ')
 
 
 urlpatterns = router.urls
+urlpatterns += [
+    path("analyze/", api_analyze, name="spatial_analyze"),
+]

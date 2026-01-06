@@ -35,9 +35,16 @@ class HistoryAcquisitionSerializer(serializers.ModelSerializer):
             'status',
             'deskripsi'
         ]
+class AcquisitionAssetSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AcquisitionAsset
+        fields = [
+            'id_parcel_asset',
+            'id_asset'
+        ]
 class AcquisitionSerializer(serializers.ModelSerializer):
     # id_persil = PolygonPersilSerializer()
-
+    id_asset = AcquisitionAssetSerializer()
     class Meta:
         model = Acquisition
         fields = [
@@ -51,7 +58,8 @@ class AcquisitionSerializer(serializers.ModelSerializer):
             'jumlah_bebas',
             'biaya_pembebasan',
             'tanggal_negosiasi',
-            'geom'
+            'geom',
+            'id_asset'
             # 'id_persil'
         ]
 
@@ -177,7 +185,7 @@ class LandInventoryRasterSerializer(serializers.ModelSerializer):
             print("Proses 1")
             # 2️⃣ UPLOAD KE GEOSERVER
             upload_url = (
-                f"http://localhost:8080/geoserver/rest/workspaces/"
+                f"http://103.150.191.85:8888/geoserver/rest/workspaces/"
                 f"raster_valemis/coveragestores/"
                 f"{store_name}_store/file.geotiff"
             )
@@ -198,7 +206,7 @@ class LandInventoryRasterSerializer(serializers.ModelSerializer):
 
             # 3️⃣ PUBLISH COVERAGE
             publish_url = (
-                f"http://localhost:8080/geoserver/rest/workspaces/"
+                f"http://103.150.191.85:8888/geoserver/rest/workspaces/"
                 f"raster_valemis/coveragestores/"
                 f"{store_name}_store/coverages"
             )
@@ -236,7 +244,7 @@ class LandInventoryThemeMapSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         # GeoServer
-        GEOSERVER_URL = "http://localhost:8080/geoserver/rest"
+        GEOSERVER_URL = "http://103.150.191.85:8888/geoserver/rest"
         GEOSERVER_USER = "admin"
         GEOSERVER_PASS = "geoserver"
         WORKSPACE = "vector_valemis"
@@ -279,12 +287,13 @@ class LandInventoryThemeMapSerializer(serializers.ModelSerializer):
 
         # 4️⃣ IMPORT KE POSTGIS (ogr2ogr)
         ogr_cmd = [
-            "ogr2ogr",
+            "/usr/bin/ogr2ogr",
             "-f", "PostgreSQL",
             f"PG:host={DB_HOST} port={DB_PORT} user={DB_USER} "
             f"dbname={DB_NAME} password={DB_PASS}",
             shp_path,
             "-nln", tbl_name,
+            "-nlt", "PROMOTE_TO_MULTI", 
             "-lco", "GEOMETRY_NAME=geom",
             "-lco", "FID=id",
             "-overwrite"
