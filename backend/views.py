@@ -12,6 +12,7 @@ from django.db import connection
 from shapely import wkt
 from django.db import transaction, connection
 from django.utils.text import slugify
+
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.parsers import MultiPartParser, FormParser
 from .models import LandInventory,Acquisition,LandInventoryThemeMap,Project,LandInventoryDocument,LandInventoryRaster
@@ -99,7 +100,8 @@ def load_layer_from_db(table):
         geom_wkt = rec.pop("wkt_geom", None)
         rec["geometry"] = wkt.loads(geom_wkt) if geom_wkt else None
         records.append(rec)
-
+    engine = create_engine(db_connection_url)
+    gdf = gpd.read_postgis()
     gdf = gpd.GeoDataFrame(records, geometry="geometry", crs="EPSG:4326")
     # print(records)
     return gdf
@@ -129,93 +131,69 @@ def read_uploaded_file(uploaded_file, tmpdir):
 # ==============================
 # MAIN API
 # ==============================
+def validate_tables(cursor, tables):
+    cursor.execute("""
+        SELECT f_table_name
+        FROM geometry_columns
+    """)
+    valid = {row[0] for row in cursor.fetchall()}
+    return [t for t in tables if t in valid]
+
+def analyze_table(cursor, table, wkt_geom):
+    sql = f"""
+    WITH input AS (
+        SELECT ST_SetSRID(ST_GeomFromText(%s), 4326) AS geom
+    )
+    SELECT
+        COUNT(*) AS jumlah_fitur,
+        COALESCE(SUM(
+            ST_Area(
+                ST_Transform(
+                    ST_Intersection(t.geom, input.geom),
+                    3857
+                )
+            )
+        ), 0) AS luas_m2,
+        ST_AsGeoJSON(
+            ST_Collect(
+                ST_Intersection(t.geom, input.geom)
+            )
+        ) AS geojson
+    FROM "{table}" t, input
+    WHERE ST_Intersects(t.geom, input.geom)
+    """
+    cursor.execute(sql, [wkt_geom])
+    return cursor.fetchone()
+
 @csrf_exempt
 def api_analyze(request):
-    if request.method != "POST":
-        return JsonResponse({"error": "Only POST supported"}, status=405)
+    body = json.loads(request.body)
+    wkt_geom = body["geometry"]
+    tables = body["tables"]
 
-    try:
-        body = json.loads(request.body.decode("utf-8"))
+    results = []
+    layers = {}
 
-        wkt_geom = body.get("geometry")
-        table_list = body.get("tables", [])
+    with connection.cursor() as cursor:
+        tables = validate_tables(cursor, tables)
 
-        if not wkt_geom:
-            return JsonResponse({"error": "geometry (WKT) required"}, status=400)
+        for table in tables:
+            jumlah, luas_m2, geojson = analyze_table(cursor, table, wkt_geom)
 
-        if not isinstance(table_list, list) or not table_list:
-            return JsonResponse({"error": "tables must be non-empty array"}, status=400)
-
-        # ==============================
-        # INPUT GEOMETRY (WKT → GDF)
-        # ==============================
-        geom = wkt.loads(wkt_geom)
-
-        gdf_input = gpd.GeoDataFrame(
-            [{"id": 1}],
-            geometry=[geom],
-            crs="EPSG:4326"
-        )
-
-        results = []
-        geojson_layers = {}
-
-        # ==============================
-        # PROCESS EACH TABLE
-        # ==============================
-        for table in table_list:
-            gdf_layer = load_layer_from_db(table)
-
-            if gdf_layer.empty:
-                geojson_layers[table] = None
-                results.append({
-                    "layer": table,
-                    "jumlah_fitur": 0,
-                    "luas_m2": 0,
-                    "luas_ha": 0
-                })
-                continue
-
-            # pastikan layer CRS 4326
-            gdf_layer = gdf_layer.to_crs("EPSG:4326")
-
-            # overlay di 4326
-            clipped = gpd.overlay(gdf_layer, gdf_input, how="intersection")
-
-            if clipped.empty:
-                geojson_layers[table] = None
-                area_m2 = 0
-            else:
-                # ==============================
-                # AREA CALCULATION → 3857
-                # ==============================
-                clipped_3857 = clipped.to_crs("EPSG:3857")
-                area_m2 = clipped_3857.geometry.area.sum()
-
-                geojson_layers[table] = json.loads(
-                    clipped.to_json()
-                )
+            layers[table] = json.loads(geojson) if geojson else None
 
             results.append({
                 "layer": table,
-                "jumlah_fitur": len(clipped),
-                "luas_m2": round(area_m2, 2),
-                "luas_ha": round(area_m2 / 10000, 4)
+                "jumlah_fitur": jumlah,
+                "luas_m2": round(luas_m2, 2),
+                "luas_ha": round(luas_m2 / 10000, 4)
             })
 
-        # ==============================
-        # INPUT GEOJSON
-        # ==============================
-        input_geojson = json.loads(gdf_input.to_json())
-
-        return JsonResponse({
-            "input": input_geojson,
-            "layers": geojson_layers,
-            "stats": results
-        }, safe=False)
-
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+    return JsonResponse({
+        "input": wkt_geom,
+        "layers": layers,
+        "stats": results
+    })
 
 @csrf_exempt
 def ProcessThemeMap(request):
