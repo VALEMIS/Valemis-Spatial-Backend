@@ -86,7 +86,7 @@ def load_layer_from_db(table):
     with connection.cursor() as cursor:
         # print(cursor)
         cursor.execute(f"""
-            SELECT geom.STAsText() AS wkt_geom FROM \"{table}\"
+            SELECT ST_AsText(geom) AS wkt_geom FROM \"{table}\"
         """)
 
         columns = [col[0] for col in cursor.description]
