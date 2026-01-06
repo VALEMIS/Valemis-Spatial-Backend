@@ -17,6 +17,10 @@ from django.db import transaction
 #     class Meta:
 #         model = PolygonPersil
 #         fields = ['id_persil', 'geom']
+# class PolygonPersilSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = PolygonPersil
+#         fields = ['id_persil', 'geom']
 
 
 
@@ -139,10 +143,13 @@ class LandInventorySerializer(serializers.ModelSerializer):
     # def create(self, validated_data):
     #     persil_data = validated_data.pop('id_persil')
     #     persil = PolygonPersil.objects.create(**persil_data)
+    # def create(self, validated_data):
+    #     persil_data = validated_data.pop('id_persil')
+    #     persil = PolygonPersil.objects.create(**persil_data)
 
-    #     return LandInventory.objects.create(
-    #         id_persil=persil,
-    #         **validated_data
+        # return LandInventory.objects.create(
+        #     id_persil=persil,
+        #     **validated_data
         # )
 
 class LandInventoryRasterSerializer(serializers.ModelSerializer):

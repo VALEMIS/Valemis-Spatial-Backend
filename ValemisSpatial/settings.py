@@ -24,7 +24,7 @@ SECRET_KEY = 'django-insecure-55p8^y-6=yk^i30+bwl_k5q!$1ok^yy&r)!mp64a*i^810(+**
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
-
+GDAL_LIBRARY_PATH="C:/Users/HP/miniconda3/Library/bin/gdal.dll"
 ALLOWED_HOSTS = []
 
 CORS_ALLOW_ALL_ORIGINS = True
