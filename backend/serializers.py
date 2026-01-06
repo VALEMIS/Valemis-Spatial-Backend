@@ -13,10 +13,10 @@ from .models import *
 
 from django.db import transaction
 
-class PolygonPersilSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = PolygonPersil
-        fields = ['id_persil', 'geom']
+# class PolygonPersilSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = PolygonPersil
+#         fields = ['id_persil', 'geom']
 
 
 
@@ -105,7 +105,7 @@ class LandInventoryDocumentSerializer(serializers.ModelSerializer):
         ]
 
 class LandInventorySerializer(serializers.ModelSerializer):
-    id_persil = PolygonPersilSerializer()
+    # id_persil = PolygonPersilSerializer()
 
     kategori_detail = LandKategoriSerializer(
         source='kategori',
@@ -133,17 +133,17 @@ class LandInventorySerializer(serializers.ModelSerializer):
             'documents',
             'no_sertif',
             'id_project',
-            'id_persil',
+            'geom',
         ]
 
-    def create(self, validated_data):
-        persil_data = validated_data.pop('id_persil')
-        persil = PolygonPersil.objects.create(**persil_data)
+    # def create(self, validated_data):
+    #     persil_data = validated_data.pop('id_persil')
+    #     persil = PolygonPersil.objects.create(**persil_data)
 
-        return LandInventory.objects.create(
-            id_persil=persil,
-            **validated_data
-        )
+    #     return LandInventory.objects.create(
+    #         id_persil=persil,
+    #         **validated_data
+        # )
 
 class LandInventoryRasterSerializer(serializers.ModelSerializer):
     class Meta:

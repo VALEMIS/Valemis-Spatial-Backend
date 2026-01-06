@@ -56,7 +56,7 @@ class Acquisition(models.Model):
     biaya_pembebasan = models.IntegerField(null=True,default=0)
     tanggal_negosiasi = models.DateField(null=True,blank=True)
     NIB_Baru = models.CharField(max_length=15)
-    id_asset = models.ForeignKey(AcquisitionAsset,on_delete=models.CASCADE,related_name="Acquisition_asset")
+    id_asset = models.ForeignKey(AcquisitionAsset,on_delete=models.CASCADE,related_name="Acquisition_asset",null=True,blank=True)
     geom = models.GeometryField(srid=4326,null=True,blank=True)
     # id_persil = models.ForeignKey(
     #     PolygonPersil,
@@ -133,13 +133,14 @@ class LandInventory(models.Model):
         related_name='status'
     )
     no_sertif = models.TextField()
-    id_persil = models.ForeignKey(
-        PolygonPersil,
-        on_delete=models.PROTECT,
-        related_name='persilGeom',
-        null=True,
-        blank=True
-    )
+    geom = models.GeometryField(srid=4326,null=True,blank=True)
+    # id_persil = models.ForeignKey(
+    #     PolygonPersil,
+    #     on_delete=models.PROTECT,
+    #     related_name='persilGeom',
+    #     null=True,
+    #     blank=True
+    # )
     
     class Meta:
         db_table = 'tbl_land_inventory'
