@@ -89,7 +89,7 @@ def main():
             batch.append((
                 row["nama_pemilik"].strip(),
                 f"PARCEL-{i}",
-                7,
+                8,
                 "Belum Diproses",
                 row["desa"].strip(),
                 row["geom"],      # WKT
@@ -101,7 +101,7 @@ def main():
             # =========================
             # EXECUTE BATCH
             # =========================
-            if len(batch) >= BATCH_SIZE:
+        if len(batch) >= BATCH_SIZE:
                 execute_batch(cur, INSERT_ACQUISITION, batch)
                 conn.commit()
                 total += len(batch)
