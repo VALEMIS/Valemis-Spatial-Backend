@@ -4,39 +4,30 @@ class geometry(models.Field):
     def db_type(self, connection):
         return "geometry"
 
-# Create your models here.
-# class PolygonPersil(models.Model):
-#     id_persil = models.AutoField(primary_key=True)
-#     geom = models.GeometryField(srid=4326,null=True,blank=True)
-#     class Meta:
-#         db_table = 'tbl_persil'
-#         verbose_name = 'Polygon Persil'
-#         verbose_name_plural = 'Polygon Persils'
-
-#     def __str__(self):
-#         return f"PolygonPersil {self.id}"
-
-
 class Project(models.Model):
     id_project = models.AutoField(primary_key=True)
     nama_project = models.TextField()
     owner_project = models.TextField()
     tanggal_dibuat = models.DateField(auto_now_add=True)
-    # id_persil = models.ForeignKey(
-    #     PolygonPersil,
-    #     on_delete=models.PROTECT,   
-    #     related_name='projects',
-    #     null=True,
-    #     blank=True
-    # )
-    geom = models.GeometryField(srid=4326)
+    basemap = models.TextField(null=True,blank=True)
+    iupk = models.TextField(null=True,blank=True)
+    batas_admin = models.TextField(null=True,blank=True)
+    geom = models.GeometryField(srid=4326,null=True,blank=True)
     class Meta:
         db_table = 'tbl_project'
         verbose_name = 'Project'
         verbose_name_plural = 'Projects'
-
     def __str__(self):
         return self.nama_project
+    
+class ProjectDetail(models.Model):
+    id_project_detail = models.AutoField(primary_key=True)
+    id_project = models.ForeignKey(Project,on_delete=models.PROTECT,related_name="project_details")
+    nama_site = models.TextField(null=True,default="Site")
+    geom = models.GeometryField(srid=4326)
+    class Meta:
+        db_table = "tbl_project_detail"
+
 class AcquisitionAsset(models.Model):
     id_parcel_asset = models.AutoField(primary_key=True)
     id_asset = models.TextField(null=True,blank=True)
@@ -120,19 +111,21 @@ class LandKategori(models.Model):
 class LandInventory(models.Model):
     id_lahan = models.AutoField(primary_key=True)
     id_project = models.ForeignKey(Project,on_delete=models.CASCADE,related_name="ProjectInventory",null=True,blank=True)
-    kode_lahan = models.CharField(max_length=50)
-    nama_lokasi = models.TextField()
+    kode_lahan = models.CharField(max_length=50,null=True,blank=True)
+    nama_lokasi = models.TextField(null=True,blank=True)
     kategori =  models.ForeignKey(
         LandKategori,
         on_delete=models.PROTECT,
-        related_name='kateogri'
+        related_name='kateogri',
+        default=1
     )
     status =  models.ForeignKey(
         LandStatus,
         on_delete=models.PROTECT,
-        related_name='status'
+        related_name='status',
+        default=1
     )
-    no_sertif = models.TextField()
+    no_sertif = models.TextField(null=True,blank=True)
     geom = models.GeometryField(srid=4326,null=True,blank=True)
     
     class Meta:

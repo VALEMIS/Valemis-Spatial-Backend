@@ -44,7 +44,7 @@ class AcquisitionAssetSerializer(serializers.ModelSerializer):
         ]
 class AcquisitionSerializer(serializers.ModelSerializer):
     # id_persil = PolygonPersilSerializer()
-    id_asset = AcquisitionAssetSerializer()
+    # id_asset = AcquisitionAssetSerializer()
     class Meta:
         model = Acquisition
         fields = [
@@ -59,7 +59,7 @@ class AcquisitionSerializer(serializers.ModelSerializer):
             'biaya_pembebasan',
             'tanggal_negosiasi',
             'geom',
-            'id_asset'
+            # 'id_asset'
             # 'id_persil'
         ]
 
@@ -71,15 +71,27 @@ class AcquisitionSerializer(serializers.ModelSerializer):
     #         id_persil=persil,
     #         **validated_data
     #     )
+    def update(self, instance, validated_data):
+        previous_status = instance.status
 
+        # update acquisition dulu
+        instance = super().update(instance, validated_data)
 
+        # cek status berubah menjadi "Bebas"
+        if previous_status != "Bebas" and instance.status =="Bebas":
+            LandInventory.objects.create(
+                id_project=instance.id_project,
+                kode_lahan=instance.kode_parcel  # opsional, sesuaikan fieldmu
+            )
+
+        return instance
+
+class ProjectDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProjectDetail
+        fields = "__all__"
 class ProjectSerializer(serializers.ModelSerializer):
-    # id_persil = PolygonPersilSerializer()
-    # acquisitions = AcquisitionSerializer(
-    #     many=True,
-    #     source='AcquisitonProject',
-    #     required=False
-    # )
+    project_details = ProjectDetailSerializer(many=True)
 
     class Meta:
         model = Project
@@ -88,9 +100,40 @@ class ProjectSerializer(serializers.ModelSerializer):
             'nama_project',
             'owner_project',
             'tanggal_dibuat',
+            'basemap',
+            'iupk',
+            'batas_admin',
             'geom',
+            'project_details'
         ]
         read_only_fields = ['tanggal_dibuat']
+
+    def create(self, validated_data):
+        details_data = validated_data.pop('project_details', [])
+        project = Project.objects.create(**validated_data)
+        for detail in details_data:
+            ProjectDetail.objects.create(id_project=project, **detail)
+        return project
+
+    def update(self, instance, validated_data):
+        # Update fields Project
+        instance.nama_project = validated_data.get('nama_project', instance.nama_project)
+        instance.owner_project = validated_data.get('owner_project', instance.owner_project)
+        instance.basemap = validated_data.get('basemap', instance.basemap)
+        instance.iupk = validated_data.get('iupk', instance.iupk)
+        instance.batas_admin = validated_data.get('batas_admin', instance.batas_admin)
+        instance.geom = validated_data.get('geom', instance.geom)
+        instance.save()
+
+        # Update nested ProjectDetail
+        details_data = validated_data.get('project_details')
+        if details_data is not None:
+            # Hapus semua dulu (opsional, atau bisa update matching id)
+            instance.project_details.all().delete()
+            for detail in details_data:
+                ProjectDetail.objects.create(id_project=instance, **detail)
+
+        return instance
 
 # ============================================
 # ***************LAND INVENTORY***************
@@ -147,7 +190,7 @@ class LandInventorySerializer(serializers.ModelSerializer):
             'id_project',
             'geom',
         ]
-
+    
     # def create(self, validated_data):
     #     persil_data = validated_data.pop('id_persil')
     #     persil = PolygonPersil.objects.create(**persil_data)
