@@ -73,12 +73,34 @@ class AcquisitionSerializer(serializers.ModelSerializer):
     #         id_persil=persil,
     #         **validated_data
     #     )
+    def create(self, validated_data):
+    # buat acquisition utama dulu
+        instance = super().create(validated_data)
+
+        # simpan history pertama (status awal)
+        HistoryAcquisition.objects.create(
+            id_parcel=instance,
+            status=instance.status,
+            deskripsi=f"Data dibuat dengan status {instance.status}"
+        )
+
+        # jika status awal sudah "Bebas", langsung masuk ke LandInventory
+        if instance.status == "Bebas":
+            LandInventory.objects.create(
+                id_project=instance.id_project,
+                kode_lahan=instance.kode_parcel,
+                geom=instance.geom
+            )
+
+        return instance
+
     def update(self, instance, validated_data):
         previous_status = instance.status
 
         # update acquisition dulu
         instance = super().update(instance, validated_data)
-        
+
+        # jika status berubah -> simpan history
         if previous_status != instance.status:
             HistoryAcquisition.objects.create(
                 id_parcel=instance,
@@ -86,14 +108,22 @@ class AcquisitionSerializer(serializers.ModelSerializer):
                 deskripsi=f"Status berubah dari {previous_status} ke {instance.status}"
             )
 
-        # cek status berubah menjadi "Bebas"
-        if previous_status != "Bebas" and instance.status =="Bebas":
+        # jika status berubah menjadi "Bebas"
+        if previous_status != "Bebas" and instance.status == "Bebas":
+
+            # 1️⃣ masukkan ke LandInventory
             LandInventory.objects.create(
                 id_project=instance.id_project,
-                kode_lahan=instance.kode_parcel  # opsional, sesuaikan fieldmu
+                kode_lahan=instance.kode_parcel,
+                geom=instance.geom
             )
 
+            # 2️⃣ hapus geometry dari Acquisition
+            instance.geom = None
+            instance.save(update_fields=["geom"])
+
         return instance
+
 
 class ProjectDetailSerializer(serializers.ModelSerializer):
     class Meta:
@@ -113,6 +143,8 @@ class ProjectSerializer(serializers.ModelSerializer):
             'iupk',
             'batas_admin',
             'geom',
+            'date_start',
+            'date_end',
             'project_details'
         ]
         read_only_fields = ['tanggal_dibuat']

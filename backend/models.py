@@ -12,6 +12,8 @@ class Project(models.Model):
     basemap = models.TextField(null=True,blank=True)
     iupk = models.TextField(null=True,blank=True)
     batas_admin = models.TextField(null=True,blank=True)
+    date_start = models.DateField()
+    date_end = models.DateField()
     geom = models.GeometryField(srid=4326,null=True,blank=True)
     class Meta:
         db_table = 'tbl_project'
