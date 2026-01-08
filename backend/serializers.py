@@ -33,7 +33,8 @@ class HistoryAcquisitionSerializer(serializers.ModelSerializer):
         fields = [
             'id_history',
             'status',
-            'deskripsi'
+            'deskripsi',
+            'date_created'
         ]
 class AcquisitionAssetSerializer(serializers.ModelSerializer):
     class Meta:
@@ -45,6 +46,7 @@ class AcquisitionAssetSerializer(serializers.ModelSerializer):
 class AcquisitionSerializer(serializers.ModelSerializer):
     # id_persil = PolygonPersilSerializer()
     # id_asset = AcquisitionAssetSerializer()
+    
     class Meta:
         model = Acquisition
         fields = [
@@ -76,6 +78,13 @@ class AcquisitionSerializer(serializers.ModelSerializer):
 
         # update acquisition dulu
         instance = super().update(instance, validated_data)
+        
+        if previous_status != instance.status:
+            HistoryAcquisition.objects.create(
+                id_parcel=instance,
+                status=instance.status,
+                deskripsi=f"Status berubah dari {previous_status} ke {instance.status}"
+            )
 
         # cek status berubah menjadi "Bebas"
         if previous_status != "Bebas" and instance.status =="Bebas":

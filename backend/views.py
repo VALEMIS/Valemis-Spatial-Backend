@@ -15,8 +15,8 @@ from django.utils.text import slugify
 
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.parsers import MultiPartParser, FormParser
-from .models import LandInventory,Acquisition,LandInventoryThemeMap,Project,LandInventoryDocument,LandInventoryRaster
-from .serializers import LandInventorySerializer,AcquisitionSerializer,ProjectSerializer,LandInventoryDocumentSerializer,LandInventoryRasterSerializer,LandInventoryThemeMapSerializer
+from .models import LandInventory,Acquisition,LandInventoryThemeMap,Project,LandInventoryDocument,LandInventoryRaster,HistoryAcquisition
+from .serializers import LandInventorySerializer,AcquisitionSerializer,ProjectSerializer,LandInventoryDocumentSerializer,LandInventoryRasterSerializer,LandInventoryThemeMapSerializer,HistoryAcquisitionSerializer
 
 class LandInventoryViewSet(ModelViewSet):
     queryset = LandInventory.objects.all()
@@ -40,6 +40,18 @@ class LandAcquisitionViewSet(ModelViewSet):
 
         if id_project is not None:
             queryset = queryset.filter(id_project=id_project)
+
+        return queryset
+class LandAcquisitionHistoryViewSet(ModelViewSet):
+    queryset = HistoryAcquisition.objects.all()
+    serializer_class = HistoryAcquisitionSerializer
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        id_parcel = self.request.query_params.get("id_parcel")
+
+        if id_parcel is not None:
+            queryset = queryset.filter(id_parcel=id_parcel)
 
         return queryset
 

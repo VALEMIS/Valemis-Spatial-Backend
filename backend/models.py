@@ -36,6 +36,7 @@ class AcquisitionAsset(models.Model):
         verbose_name = 'Acquisition_asset'
         verbose_name_plural = 'Acquisition_assets'
 class Acquisition(models.Model):
+    # id_
     id_parcel = models.AutoField(primary_key=True)
     id_project = models.ForeignKey(Project,on_delete=models.CASCADE,related_name="ProjectAcquisition",null=True,blank=True)
     kode_parcel = models.TextField(null=True,blank=True)
@@ -76,6 +77,7 @@ class HistoryAcquisition(models.Model):
     )
     status = models.TextField()
     deskripsi = models.TextField()
+    date_created = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = 'tbl_history_acquisition'
