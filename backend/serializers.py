@@ -88,7 +88,7 @@ class AcquisitionSerializer(serializers.ModelSerializer):
         if instance.status == "Bebas":
             LandInventory.objects.create(
                 id_project=instance.id_project,
-                kode_lahan=instance.kode_parcel,
+                kode_lahan=instance.kode_parcel,    
                 geom=instance.geom
             )
 

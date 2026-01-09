@@ -155,27 +155,49 @@ def analyze_table(cursor, table, wkt_geom):
     sql = f"""
     WITH input AS (
         SELECT ST_SetSRID(ST_GeomFromText(%s), 4326) AS geom
+    ),
+    inter AS (
+        SELECT
+            ST_Intersection(t.geom, input.geom) AS geom
+        FROM "{table}" t, input
+        WHERE ST_Intersects(t.geom, input.geom)
     )
     SELECT
         COUNT(*) AS jumlah_fitur,
+
         COALESCE(SUM(
             ST_Area(
                 ST_Transform(
-                    ST_Intersection(t.geom, input.geom),
-                    3857
+                    ST_Force2D(
+                        ST_CollectionExtract(
+                            ST_CurveToLine(geom), 3
+                        )
+                    ), 3857
                 )
             )
         ), 0) AS luas_m2,
-        ST_AsGeoJSON(
-            ST_Collect(
-                ST_Intersection(t.geom, input.geom)
+
+        CASE
+            WHEN COUNT(*) = 0 THEN NULL
+            ELSE ST_AsGeoJSON(
+                ST_Collect(
+                    ST_Multi(
+                        ST_Force2D(
+                            ST_CollectionExtract(
+                                ST_CurveToLine(geom), 3
+                            )
+                        )
+                    )
+                )
             )
-        ) AS geojson
-    FROM "{table}" t, input
-    WHERE ST_Intersects(t.geom, input.geom)
+        END AS geojson
+
+    FROM inter
+    WHERE NOT ST_IsEmpty(geom);
     """
     cursor.execute(sql, [wkt_geom])
     return cursor.fetchone()
+
 
 @csrf_exempt
 def api_analyze(request):
